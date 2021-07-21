@@ -4,9 +4,9 @@ import (
 	"github.com/op/go-logging"
 )
 
-type handlerFunc func(format *string, args ...interface{})
+type HandlerFunc func(format *string, args ...interface{})
 
-var handlers = make(map[logging.Level][]handlerFunc)
+var handlers = make(map[logging.Level][]HandlerFunc)
 
 func Critical(args ...interface{}) {
 	logger.Critical(args...)
@@ -78,18 +78,18 @@ func handle(level logging.Level, format *string, args ...interface{}) {
 	}
 }
 
-func RegisterHandler(level logging.Level, fn handlerFunc) {
+func RegisterHandler(level logging.Level, fn HandlerFunc) {
 	if functions, ok := handlers[level]; ok {
 		functions = append(functions, fn)
 	} else {
-		handlers[level] = []handlerFunc{fn}
+		handlers[level] = []HandlerFunc{fn}
 	}
 }
 
-func RegisterErrorHandler(fn handlerFunc) {
+func RegisterErrorHandler(fn HandlerFunc) {
 	RegisterHandler(logging.ERROR, fn)
 }
 
-func RegisterWarningHandler(fn handlerFunc) {
+func RegisterWarningHandler(fn HandlerFunc) {
 	RegisterHandler(logging.WARNING, fn)
 }
