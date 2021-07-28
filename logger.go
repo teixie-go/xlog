@@ -7,10 +7,12 @@ import (
 )
 
 var (
+	// 缓冲分隔符，默认为空格
 	BufferSeparator = " "
 )
 
 type bufferLogger struct {
+	name   string
 	buffer *bytes.Buffer
 }
 
@@ -27,7 +29,7 @@ func (b *bufferLogger) String() string {
 }
 
 func (b *bufferLogger) Flush() {
-	Info(b.String())
+	GetLogger(b.name).Info(b.String())
 }
 
 func appendString(args ...interface{}) string {
@@ -38,6 +40,13 @@ func appendString(args ...interface{}) string {
 	return str
 }
 
-func NewBufferLogger(args ...interface{}) *bufferLogger {
+func NewDefaultBufferLogger(args ...interface{}) *bufferLogger {
 	return &bufferLogger{buffer: bytes.NewBufferString(appendString(args...))}
+}
+
+func NewBufferLogger(name string, args ...interface{}) *bufferLogger {
+	return &bufferLogger{
+		name:   name,
+		buffer: bytes.NewBufferString(appendString(args...)),
+	}
 }
