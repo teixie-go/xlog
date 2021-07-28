@@ -31,7 +31,7 @@ var (
 
 //------------------------------------------------------------------------------
 
-type ListenerFunc func(logger *logger, level logging.Level, format *string, args ...interface{})
+type ListenerFunc func(module string, level logging.Level, format *string, args ...interface{})
 
 // 注册全局监听器，作用于所有logger
 func Listen(level logging.Level, fn ...ListenerFunc) {
@@ -139,14 +139,14 @@ func (l *logger) dispatch(level logging.Level, format *string, args ...interface
 	// 触发绑定的监听器
 	if _, ok := l.listeners[level]; ok {
 		for _, listener := range l.listeners[level] {
-			listener(l, level, format, args...)
+			listener(l.Module(), level, format, args...)
 		}
 	}
 
 	// 触发全局的监听器
 	if _, ok := listeners[level]; ok {
 		for _, listener := range listeners[level] {
-			listener(l, level, format, args...)
+			listener(l.Module(), level, format, args...)
 		}
 	}
 }
