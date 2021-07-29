@@ -10,17 +10,46 @@ import (
 )
 
 var (
+	_ Configurator = (*Configuration)(nil)
+)
+
+var (
 	fileList   = list.New()
 	fileFormat = logging.MustStringFormatter("%{time:15:04:05.000} %{shortfile} >%{level:.5s} - %{message}")
 	stdFormat  = logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{shortfile} >%{level:.5s}%{color:reset} - %{message}")
 )
 
-type Config interface {
+type Configurator interface {
 	GetLogPath() string
 	GetLogLevel() string
 	GetStdoutLevel() string
 	GetStderrLevel() string
 }
+
+type Configuration struct {
+	LogPath     string `yaml:"log_path" json:"log_path"`
+	LogLevel    string `yaml:"log_level" json:"log_path"`
+	StdoutLevel string `yaml:"stdout_level" json:"stdout_level"`
+	StderrLevel string `yaml:"stderr_level" json:"stderr_level"`
+}
+
+func (c *Configuration) GetLogPath() string {
+	return c.LogPath
+}
+
+func (c *Configuration) GetLogLevel() string {
+	return c.LogLevel
+}
+
+func (c *Configuration) GetStdoutLevel() string {
+	return c.StdoutLevel
+}
+
+func (c *Configuration) GetStderrLevel() string {
+	return c.StderrLevel
+}
+
+//------------------------------------------------------------------------------
 
 func closeOldLogFile(isNewOpen bool) {
 	expectedFileNum := 0
@@ -66,7 +95,7 @@ func initFileLogging(path string, level logging.Level, formatter logging.Formatt
 	return nil
 }
 
-func reload(cfg Config) error {
+func reload(cfg Configurator) error {
 	if cfg == nil {
 		initLogging(os.Stdout, logging.INFO, stdFormat)
 		return nil
@@ -100,6 +129,6 @@ func reload(cfg Config) error {
 	return initFileLogging(logPath, logLevel, fileFormat)
 }
 
-func Init(cfg Config) error {
+func Init(cfg Configurator) error {
 	return reload(cfg)
 }

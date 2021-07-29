@@ -29,6 +29,7 @@ var (
 	// 全局监听器组
 	_listeners = make(map[logging.Level][]ListenerFunc)
 
+	// GetLogger锁
 	mu sync.Mutex
 )
 
@@ -264,9 +265,12 @@ func resolveLoggerName(names ...string) string {
 }
 
 func GetLogger(names ...string) *logger {
+	name := resolveLoggerName(names...)
+	if _, ok := loggers[name]; ok {
+		return loggers[name]
+	}
 	mu.Lock()
 	defer mu.Unlock()
-	name := resolveLoggerName(names...)
 	if _, ok := loggers[name]; ok {
 		return loggers[name]
 	}
