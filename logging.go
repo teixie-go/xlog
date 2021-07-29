@@ -28,7 +28,7 @@ type Configurator interface {
 
 type Configuration struct {
 	LogPath     string `yaml:"log_path" json:"log_path"`
-	LogLevel    string `yaml:"log_level" json:"log_path"`
+	LogLevel    string `yaml:"log_level" json:"log_level"`
 	StdoutLevel string `yaml:"stdout_level" json:"stdout_level"`
 	StderrLevel string `yaml:"stderr_level" json:"stderr_level"`
 }
