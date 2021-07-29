@@ -1,6 +1,9 @@
 package xlog
 
 import (
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/op/go-logging"
@@ -24,21 +27,46 @@ var (
 	loggers = make(map[string]*logger)
 
 	// 全局监听器组
-	listeners = make(map[logging.Level][]ListenerFunc)
+	_listeners = make(map[logging.Level][]ListenerFunc)
 
 	mu sync.Mutex
 )
 
 //------------------------------------------------------------------------------
 
-type ListenerFunc func(module string, level logging.Level, format *string, args ...interface{})
+type RuntimeCaller struct {
+	PC       uintptr
+	File     string
+	Filename string
+	Function string
+	Line     int
+}
+
+func GetRuntimeCaller(skip int) *RuntimeCaller {
+	function := "???"
+	pc, file, line, ok := runtime.Caller(skip)
+	if ok {
+		function = runtime.FuncForPC(pc).Name()
+	}
+	return &RuntimeCaller{
+		PC:       pc,
+		File:     file,
+		Filename: filepath.Base(file),
+		Function: function,
+		Line:     line,
+	}
+}
+
+//------------------------------------------------------------------------------
+
+type ListenerFunc func(caller *RuntimeCaller, module, level string, format *string, args ...interface{})
 
 // 注册全局监听器，作用于所有logger
-func Listen(level logging.Level, fn ...ListenerFunc) {
-	if _, ok := listeners[level]; !ok {
-		listeners[level] = make([]ListenerFunc, 0)
+func Listen(level logging.Level, listeners ...ListenerFunc) {
+	if _, ok := _listeners[level]; !ok {
+		_listeners[level] = make([]ListenerFunc, 0)
 	}
-	listeners[level] = append(listeners[level], fn...)
+	_listeners[level] = append(_listeners[level], listeners...)
 }
 
 //------------------------------------------------------------------------------
@@ -136,18 +164,27 @@ func (l *logger) Listen(level logging.Level, fn ...ListenerFunc) {
 }
 
 func (l *logger) dispatch(level logging.Level, format *string, args ...interface{}) {
+	// 未注册监听器直接退出
+	if len(l.listeners[level]) == 0 && len(_listeners[level]) == 0 {
+		return
+	}
+
+	// 获取包外部Caller
+	caller0 := GetRuntimeCaller(0)
+	packageName := caller0.Function[0:strings.LastIndex(caller0.Function, "/")]
+	caller := GetRuntimeCaller(3)
+	if strings.Contains(caller.Function, packageName) {
+		caller = GetRuntimeCaller(4)
+	}
+
 	// 触发绑定的监听器
-	if _, ok := l.listeners[level]; ok {
-		for _, listener := range l.listeners[level] {
-			listener(l.Module(), level, format, args...)
-		}
+	for _, listener := range l.listeners[level] {
+		listener(caller, l.Module(), level.String(), format, args...)
 	}
 
 	// 触发全局的监听器
-	if _, ok := listeners[level]; ok {
-		for _, listener := range listeners[level] {
-			listener(l.Module(), level, format, args...)
-		}
+	for _, listener := range _listeners[level] {
+		listener(caller, l.Module(), level.String(), format, args...)
 	}
 }
 
