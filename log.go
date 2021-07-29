@@ -264,12 +264,12 @@ func resolveLoggerName(names ...string) string {
 }
 
 func GetLogger(names ...string) *logger {
+	mu.Lock()
+	defer mu.Unlock()
 	name := resolveLoggerName(names...)
 	if _, ok := loggers[name]; ok {
 		return loggers[name]
 	}
-	mu.Lock()
-	defer mu.Unlock()
 	loggers[name] = &logger{
 		logger:    logging.MustGetLogger(name),
 		listeners: make(map[logging.Level][]ListenerFunc),
