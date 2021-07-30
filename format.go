@@ -322,11 +322,7 @@ func (f *stringFormatter) Format(calldepth int, r *logging.Record, output io.Wri
 				v = r.Message()
 				break
 			case fmtVerbLongfile, fmtVerbShortfile:
-				caller0 := GetRuntimeCaller(0)
-				caller := GetRuntimeCaller(calldepth + 3)
-				if strings.Contains(caller.Function, caller0.GetPackageName()) {
-					caller = GetRuntimeCaller(calldepth + 4)
-				}
+				caller := getRuntimeCaller(calldepth + 4)
 				var file string
 				if caller.File == "" {
 					file = "???"
@@ -338,11 +334,7 @@ func (f *stringFormatter) Format(calldepth int, r *logging.Record, output io.Wri
 				fmtVerbLongpkg, fmtVerbShortpkg:
 				// TODO cache pc
 				v = "???"
-				caller0 := GetRuntimeCaller(0)
-				caller := GetRuntimeCaller(calldepth + 3)
-				if strings.Contains(caller.Function, caller0.GetPackageName()) {
-					caller = GetRuntimeCaller(calldepth + 4)
-				}
+				caller := getRuntimeCaller(calldepth + 4)
 				if caller.Function != "" {
 					v = formatFuncName(part.verb, caller.Function)
 				}

@@ -62,6 +62,15 @@ func GetRuntimeCaller(skip int) *RuntimeCaller {
 	}
 }
 
+func getRuntimeCaller(skip int) *RuntimeCaller {
+	caller0 := GetRuntimeCaller(0)
+	caller := GetRuntimeCaller(skip)
+	if strings.Contains(caller.Function, caller0.GetPackageName()) {
+		caller = GetRuntimeCaller(skip + 1)
+	}
+	return caller
+}
+
 //------------------------------------------------------------------------------
 
 type ListenerFunc func(caller *RuntimeCaller, module, level string, format *string, args ...interface{})
@@ -174,12 +183,8 @@ func (l *logger) dispatch(level logging.Level, format *string, args ...interface
 		return
 	}
 
-	// 获取包外部Caller
-	caller0 := GetRuntimeCaller(0)
-	caller := GetRuntimeCaller(3)
-	if strings.Contains(caller.Function, caller0.GetPackageName()) {
-		caller = GetRuntimeCaller(4)
-	}
+	// 获取调用Error/Warning/Info等方法的Caller
+	caller := getRuntimeCaller(4)
 
 	// 触发绑定的监听器
 	for _, listener := range l.listeners[level] {
