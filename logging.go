@@ -14,23 +14,27 @@ var (
 )
 
 var (
-	fileList   = list.New()
-	fileFormat = MustStringFormatter("%{time:15:04:05.000} %{shortfile} >%{level:.5s} - %{message}")
-	stdFormat  = MustStringFormatter("%{color}%{time:15:04:05.000} %{shortfile} >%{level:.5s}%{color:reset} - %{message}")
+	fileList  = list.New()
+	logFormat = "%{time:15:04:05.000} %{shortfile} >%{level:.5s} - %{message}"
+	stdFormat = "%{color}%{time:15:04:05.000} %{shortfile} >%{level:.5s}%{color:reset} - %{message}"
 )
 
 type Configurator interface {
 	GetLogPath() string
 	GetLogLevel() string
+	GetLogFormat() string
 	GetStdoutLevel() string
 	GetStderrLevel() string
+	GetStdFormat() string
 }
 
 type Configuration struct {
 	LogPath     string `yaml:"log_path" json:"log_path"`
 	LogLevel    string `yaml:"log_level" json:"log_level"`
+	LogFormat   string `yaml:"log_format" json:"log_format"`
 	StdoutLevel string `yaml:"stdout_level" json:"stdout_level"`
 	StderrLevel string `yaml:"stderr_level" json:"stderr_level"`
+	StdFormat   string `yaml:"std_format" json:"std_format"`
 }
 
 func (c *Configuration) GetLogPath() string {
@@ -41,12 +45,20 @@ func (c *Configuration) GetLogLevel() string {
 	return c.LogLevel
 }
 
+func (c *Configuration) GetLogFormat() string {
+	return c.LogFormat
+}
+
 func (c *Configuration) GetStdoutLevel() string {
 	return c.StdoutLevel
 }
 
 func (c *Configuration) GetStderrLevel() string {
 	return c.StderrLevel
+}
+
+func (c *Configuration) GetStdFormat() string {
+	return c.StdFormat
 }
 
 //------------------------------------------------------------------------------
@@ -95,18 +107,32 @@ func initFileLogging(path string, level logging.Level, formatter logging.Formatt
 	return nil
 }
 
-func reload(cfg Configurator) error {
+func Init(cfg Configurator) error {
 	if cfg == nil {
-		initLogging(os.Stdout, logging.INFO, stdFormat)
+		initLogging(os.Stdout, logging.INFO, MustStringFormatter(stdFormat))
 		return nil
 	}
 
+	// 处理日志formatter
+	var logFormatter, stdFormatter Formatter
+	if len(cfg.GetLogFormat()) > 0 {
+		logFormatter = MustStringFormatter(cfg.GetLogFormat())
+	} else {
+		logFormatter = MustStringFormatter(logFormat)
+	}
+	if len(cfg.GetStdFormat()) > 0 {
+		stdFormatter = MustStringFormatter(cfg.GetStdFormat())
+	} else {
+		stdFormatter = MustStringFormatter(stdFormat)
+	}
+
+	// 判断是否输出stderr日志
 	if len(cfg.GetStderrLevel()) > 0 {
 		stderrLevel, err := logging.LogLevel(cfg.GetStderrLevel())
 		if err != nil {
 			return err
 		}
-		initLogging(os.Stderr, stderrLevel, stdFormat)
+		initLogging(os.Stderr, stderrLevel, stdFormatter)
 	}
 
 	logPath := cfg.GetLogPath()
@@ -121,14 +147,10 @@ func reload(cfg Configurator) error {
 		if err != nil {
 			return err
 		}
-		initLogging(os.Stdout, stdoutLevel, stdFormat)
+		initLogging(os.Stdout, stdoutLevel, stdFormatter)
 	} else if len(logPath) <= 0 {
-		initLogging(os.Stdout, logLevel, stdFormat)
+		initLogging(os.Stdout, logLevel, stdFormatter)
 	}
 
-	return initFileLogging(logPath, logLevel, fileFormat)
-}
-
-func Init(cfg Configurator) error {
-	return reload(cfg)
+	return initFileLogging(logPath, logLevel, logFormatter)
 }
