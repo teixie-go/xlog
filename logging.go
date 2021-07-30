@@ -15,8 +15,8 @@ var (
 
 var (
 	fileList   = list.New()
-	fileFormat = logging.MustStringFormatter("%{time:15:04:05.000} %{shortfile} >%{level:.5s} - %{message}")
-	stdFormat  = logging.MustStringFormatter("%{color}%{time:15:04:05.000} %{shortfile} >%{level:.5s}%{color:reset} - %{message}")
+	fileFormat = MustStringFormatter("%{time:15:04:05.000} %{shortfile} >%{level:.5s} - %{message}")
+	stdFormat  = MustStringFormatter("%{color}%{time:15:04:05.000} %{shortfile} >%{level:.5s}%{color:reset} - %{message}")
 )
 
 type Configurator interface {
