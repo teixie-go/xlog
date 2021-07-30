@@ -323,7 +323,7 @@ func (f *stringFormatter) Format(calldepth int, r *logging.Record, output io.Wri
 				break
 			case fmtVerbLongfile, fmtVerbShortfile:
 				caller := getRuntimeCaller(calldepth + 4)
-				var file string
+				file := caller.File
 				if caller.File == "" {
 					file = "???"
 				} else if part.verb == fmtVerbShortfile {
