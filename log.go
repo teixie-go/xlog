@@ -43,6 +43,10 @@ type RuntimeCaller struct {
 	Line     int
 }
 
+func (r *RuntimeCaller) GetPackageName() string {
+	return r.Function[0:strings.LastIndex(r.Function, "/")]
+}
+
 func GetRuntimeCaller(skip int) *RuntimeCaller {
 	function := "???"
 	pc, file, line, ok := runtime.Caller(skip)
@@ -172,9 +176,8 @@ func (l *logger) dispatch(level logging.Level, format *string, args ...interface
 
 	// 获取包外部Caller
 	caller0 := GetRuntimeCaller(0)
-	packageName := caller0.Function[0:strings.LastIndex(caller0.Function, "/")]
 	caller := GetRuntimeCaller(3)
-	if strings.Contains(caller.Function, packageName) {
+	if strings.Contains(caller.Function, caller0.GetPackageName()) {
 		caller = GetRuntimeCaller(4)
 	}
 

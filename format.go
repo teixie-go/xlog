@@ -323,9 +323,8 @@ func (f *stringFormatter) Format(calldepth int, r *logging.Record, output io.Wri
 				break
 			case fmtVerbLongfile, fmtVerbShortfile:
 				caller0 := GetRuntimeCaller(0)
-				packageName := caller0.Function[0:strings.LastIndex(caller0.Function, "/")]
 				caller := GetRuntimeCaller(calldepth + 3)
-				if strings.Contains(caller.Function, packageName) {
+				if strings.Contains(caller.Function, caller0.GetPackageName()) {
 					caller = GetRuntimeCaller(calldepth + 4)
 				}
 				var file string
@@ -340,9 +339,8 @@ func (f *stringFormatter) Format(calldepth int, r *logging.Record, output io.Wri
 				// TODO cache pc
 				v = "???"
 				caller0 := GetRuntimeCaller(0)
-				packageName := caller0.Function[0:strings.LastIndex(caller0.Function, "/")]
 				caller := GetRuntimeCaller(calldepth + 3)
-				if strings.Contains(caller.Function, packageName) {
+				if strings.Contains(caller.Function, caller0.GetPackageName()) {
 					caller = GetRuntimeCaller(calldepth + 4)
 				}
 				if caller.Function != "" {
