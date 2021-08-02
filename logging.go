@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"io"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/op/go-logging"
@@ -108,7 +109,7 @@ func initFileLogging(path string, level logging.Level, formatter logging.Formatt
 }
 
 func Init(cfg Configurator) error {
-	if cfg == nil {
+	if cfg == nil || reflect.ValueOf(cfg).IsNil() {
 		initLogging(os.Stdout, logging.INFO, MustStringFormatter(stdFormat))
 		return nil
 	}
