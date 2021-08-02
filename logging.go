@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ Configurator = (*Configuration)(nil)
+	_ Configurator = (*Config)(nil)
 )
 
 var (
@@ -28,7 +28,7 @@ type Configurator interface {
 	GetStdFormat() string
 }
 
-type Configuration struct {
+type Config struct {
 	LogPath     string `yaml:"log_path" json:"log_path"`
 	LogLevel    string `yaml:"log_level" json:"log_level"`
 	LogFormat   string `yaml:"log_format" json:"log_format"`
@@ -37,27 +37,27 @@ type Configuration struct {
 	StdFormat   string `yaml:"std_format" json:"std_format"`
 }
 
-func (c *Configuration) GetLogPath() string {
+func (c *Config) GetLogPath() string {
 	return c.LogPath
 }
 
-func (c *Configuration) GetLogLevel() string {
+func (c *Config) GetLogLevel() string {
 	return c.LogLevel
 }
 
-func (c *Configuration) GetLogFormat() string {
+func (c *Config) GetLogFormat() string {
 	return c.LogFormat
 }
 
-func (c *Configuration) GetStdoutLevel() string {
+func (c *Config) GetStdoutLevel() string {
 	return c.StdoutLevel
 }
 
-func (c *Configuration) GetStderrLevel() string {
+func (c *Config) GetStderrLevel() string {
 	return c.StderrLevel
 }
 
-func (c *Configuration) GetStdFormat() string {
+func (c *Config) GetStdFormat() string {
 	return c.StdFormat
 }
 
