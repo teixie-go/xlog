@@ -170,11 +170,11 @@ func (l *logger) Debugf(format string, args ...interface{}) {
 	l.dispatch(DEBUG, &format, args...)
 }
 
-func (l *logger) Listen(level logging.Level, fn ...ListenerFunc) {
+func (l *logger) Listen(level logging.Level, listeners ...ListenerFunc) {
 	if _, ok := l.listeners[level]; !ok {
 		l.listeners[level] = make([]ListenerFunc, 0)
 	}
-	l.listeners[level] = append(l.listeners[level], fn...)
+	l.listeners[level] = append(l.listeners[level], listeners...)
 }
 
 func (l *logger) dispatch(level logging.Level, format *string, args ...interface{}) {
