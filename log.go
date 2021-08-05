@@ -44,7 +44,10 @@ type RuntimeCaller struct {
 }
 
 func (r *RuntimeCaller) GetPackageName() string {
-	return r.Function[0:strings.LastIndex(r.Function, "/")]
+	if pos := strings.LastIndex(r.Function, "/"); pos >= 0 {
+		return r.Function[0:pos]
+	}
+	return r.Function
 }
 
 func GetRuntimeCaller(skip int) *RuntimeCaller {
