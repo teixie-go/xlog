@@ -1,293 +1,158 @@
 package xlog
 
 import (
-	"path/filepath"
-	"runtime"
+	"context"
+	"fmt"
+	"os"
 	"strings"
-	"sync"
 
-	"github.com/op/go-logging"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// 日志级别
-const (
-	CRITICAL = logging.CRITICAL
-	ERROR    = logging.ERROR
-	WARNING  = logging.WARNING
-	NOTICE   = logging.NOTICE
-	INFO     = logging.INFO
-	DEBUG    = logging.DEBUG
-)
+var log = &logger{}
 
-var (
-	// 默认日志模块名称
-	DefaultLoggerName string
-
-	// 日志实例组
-	loggers = make(map[string]*logger)
-
-	// 全局监听器组
-	_listeners = make(map[logging.Level][]ListenerFunc)
-
-	// GetLogger锁
-	mu sync.Mutex
-)
-
-//------------------------------------------------------------------------------
-
-type RuntimeCaller struct {
-	PC       uintptr
-	File     string
-	Filename string
-	Function string
-	Line     int
+type Config struct {
+	Path       string `yaml:"path" json:"path"`
+	Level      string `yaml:"level" json:"level"`
+	MaxSize    int    `yaml:"max_size" json:"max_size"`
+	MaxAge     int    `yaml:"max_age" json:"max_age"`
+	MaxBackups int    `yaml:"max_backups" json:"max_backups"`
 }
 
-func (r *RuntimeCaller) GetPackageName() string {
-	if pos := strings.LastIndex(r.Function, "/"); pos >= 0 {
-		return r.Function[0:pos]
-	}
-	return r.Function
+func Init(options ...Option) error {
+	log = NewLogger(options...)
+	return nil
 }
 
-func GetRuntimeCaller(skip int) *RuntimeCaller {
-	function := "???"
-	pc, file, line, ok := runtime.Caller(skip)
-	if ok {
-		function = runtime.FuncForPC(pc).Name()
-	}
-	return &RuntimeCaller{
-		PC:       pc,
-		File:     file,
-		Filename: filepath.Base(file),
-		Function: function,
-		Line:     line,
-	}
-}
-
-func getRuntimeCaller(skip int) *RuntimeCaller {
-	caller0 := GetRuntimeCaller(0)
-	caller := GetRuntimeCaller(skip)
-	if strings.Contains(caller.Function, caller0.GetPackageName()) {
-		caller = GetRuntimeCaller(skip + 1)
-	}
-	return caller
-}
-
-//------------------------------------------------------------------------------
-
-type ListenerFunc func(caller *RuntimeCaller, module, level string, format *string, args ...interface{})
-
-// 注册全局监听器，作用于所有logger
-func Listen(level logging.Level, listeners ...ListenerFunc) {
-	if _, ok := _listeners[level]; !ok {
-		_listeners[level] = make([]ListenerFunc, 0)
-	}
-	_listeners[level] = append(_listeners[level], listeners...)
-}
-
-//------------------------------------------------------------------------------
-
-type logger struct {
-	logger    *logging.Logger
-	listeners map[logging.Level][]ListenerFunc
-}
-
-func (l *logger) Module() string {
-	return l.logger.Module
-}
-
-func (l *logger) Fatal(args ...interface{}) {
-	l.logger.Fatal(args...)
-}
-
-func (l *logger) Fatalf(format string, args ...interface{}) {
-	l.logger.Fatalf(format, args...)
-}
-
-func (l *logger) Panic(args ...interface{}) {
-	l.logger.Panic(args...)
-}
-
-func (l *logger) Panicf(format string, args ...interface{}) {
-	l.logger.Panicf(format, args...)
-}
-
-func (l *logger) Critical(args ...interface{}) {
-	l.logger.Critical(args...)
-	l.dispatch(CRITICAL, nil, args...)
-}
-
-func (l *logger) Criticalf(format string, args ...interface{}) {
-	l.logger.Criticalf(format, args...)
-	l.dispatch(CRITICAL, &format, args...)
-}
-
-func (l *logger) Error(args ...interface{}) {
-	l.logger.Error(args...)
-	l.dispatch(ERROR, nil, args...)
-}
-
-func (l *logger) Errorf(format string, args ...interface{}) {
-	l.logger.Errorf(format, args...)
-	l.dispatch(ERROR, &format, args...)
-}
-
-func (l *logger) Warning(args ...interface{}) {
-	l.logger.Warning(args...)
-	l.dispatch(WARNING, nil, args...)
-}
-
-func (l *logger) Warningf(format string, args ...interface{}) {
-	l.logger.Warningf(format, args...)
-	l.dispatch(WARNING, &format, args...)
-}
-
-func (l *logger) Notice(args ...interface{}) {
-	l.logger.Notice(args...)
-	l.dispatch(NOTICE, nil, args...)
-}
-
-func (l *logger) Noticef(format string, args ...interface{}) {
-	l.logger.Noticef(format, args...)
-	l.dispatch(NOTICE, &format, args...)
-}
-
-func (l *logger) Info(args ...interface{}) {
-	l.logger.Info(args...)
-	l.dispatch(INFO, nil, args...)
-}
-
-func (l *logger) Infof(format string, args ...interface{}) {
-	l.logger.Infof(format, args...)
-	l.dispatch(INFO, &format, args...)
-}
-
-func (l *logger) Debug(args ...interface{}) {
-	l.logger.Debug(args...)
-	l.dispatch(DEBUG, nil, args...)
-}
-
-func (l *logger) Debugf(format string, args ...interface{}) {
-	l.logger.Debugf(format, args...)
-	l.dispatch(DEBUG, &format, args...)
-}
-
-func (l *logger) Listen(level logging.Level, listeners ...ListenerFunc) {
-	if _, ok := l.listeners[level]; !ok {
-		l.listeners[level] = make([]ListenerFunc, 0)
-	}
-	l.listeners[level] = append(l.listeners[level], listeners...)
-}
-
-func (l *logger) dispatch(level logging.Level, format *string, args ...interface{}) {
-	// 未注册监听器直接退出
-	if len(l.listeners[level]) == 0 && len(_listeners[level]) == 0 {
-		return
+func InitDefault(cfg Config) error {
+	ls := zapcore.AddSync(os.Stdout)
+	if len(cfg.Path) != 0 {
+		ls = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   cfg.Path,
+			MaxSize:    cfg.MaxSize,
+			MaxAge:     cfg.MaxAge,
+			MaxBackups: cfg.MaxBackups,
+		})
 	}
 
-	// 获取调用Error/Warning/Info等方法的Caller
-	caller := getRuntimeCaller(4)
-
-	// 触发绑定的监听器
-	for _, listener := range l.listeners[level] {
-		listener(caller, l.Module(), level.String(), format, args...)
+	// default level INFO
+	level := zapcore.InfoLevel
+	zapLevel := map[string]zapcore.Level{
+		"DEBUG":   zapcore.DebugLevel,
+		"INFO":    zapcore.InfoLevel,
+		"WARNING": zapcore.WarnLevel,
+		"ERROR":   zapcore.ErrorLevel,
+		"PANIC":   zapcore.PanicLevel,
+		"FATAL":   zapcore.FatalLevel,
+	}
+	if lvl, ok := zapLevel[strings.ToUpper(cfg.Level)]; ok {
+		level = lvl
 	}
 
-	// 触发全局的监听器
-	for _, listener := range _listeners[level] {
-		listener(caller, l.Module(), level.String(), format, args...)
+	conf := zap.NewProductionEncoderConfig()
+	conf.TimeKey = "t"
+	conf.LevelKey = "l"
+	conf.CallerKey = "c"
+	conf.EncodeLevel = capitalLevelEncoder
+	conf.EncodeTime = zapcore.ISO8601TimeEncoder
+	enc := zapcore.NewJSONEncoder(conf)
+	zapLogger := zap.New(zapcore.NewCore(enc, ls, level), zap.AddCaller(), zap.AddCallerSkip(CallerSkipOffset+1))
+	zap.ReplaceGlobals(zapLogger)
+
+	return Init(WithHandler(NewZapHandler(zapLogger)), WithCaller(true), WithCallerSkip(1))
+}
+
+func capitalLevelEncoder(lvl zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	switch lvl {
+	case zapcore.DebugLevel:
+		enc.AppendString("D")
+	case zapcore.InfoLevel:
+		enc.AppendString("I")
+	case zapcore.WarnLevel:
+		enc.AppendString("W")
+	case zapcore.ErrorLevel:
+		enc.AppendString("E")
+	case zapcore.DPanicLevel:
+		enc.AppendString("DP")
+	case zapcore.PanicLevel:
+		enc.AppendString("P")
+	case zapcore.FatalLevel:
+		enc.AppendString("F")
+	default:
+		enc.AppendString(fmt.Sprintf("LEVEL(%d)", lvl))
 	}
 }
 
-//------------------------------------------------------------------------------
-
-func Fatal(args ...interface{}) {
-	GetLogger().Fatal(args...)
+func Fatal(ctx context.Context, args ...interface{}) {
+	log.Fatal(ctx, args...)
 }
 
-func Fatalf(format string, args ...interface{}) {
-	GetLogger().Fatalf(format, args...)
+func Fatalv(ctx context.Context, param ...Param) {
+	log.Fatalv(ctx, param...)
 }
 
-func Panic(args ...interface{}) {
-	GetLogger().Panic(args...)
+func Fatalf(ctx context.Context, format string, args ...interface{}) {
+	log.Fatalf(ctx, format, args...)
 }
 
-func Panicf(format string, args ...interface{}) {
-	GetLogger().Panicf(format, args...)
+func Panic(ctx context.Context, args ...interface{}) {
+	log.Panic(ctx, args...)
 }
 
-func Critical(args ...interface{}) {
-	GetLogger().Critical(args...)
+func Panicv(ctx context.Context, param ...Param) {
+	log.Panicv(ctx, param...)
 }
 
-func Criticalf(format string, args ...interface{}) {
-	GetLogger().Criticalf(format, args...)
+func Panicf(ctx context.Context, format string, args ...interface{}) {
+	log.Panicf(ctx, format, args...)
 }
 
-func Error(args ...interface{}) {
-	GetLogger().Error(args...)
+func Error(ctx context.Context, args ...interface{}) {
+	log.Error(ctx, args...)
 }
 
-func Errorf(format string, args ...interface{}) {
-	GetLogger().Errorf(format, args...)
+func Errorv(ctx context.Context, param ...Param) {
+	log.Errorv(ctx, param...)
 }
 
-func Warning(args ...interface{}) {
-	GetLogger().Warning(args...)
+func Errorf(ctx context.Context, format string, args ...interface{}) {
+	log.Errorf(ctx, format, args...)
 }
 
-func Warningf(format string, args ...interface{}) {
-	GetLogger().Warningf(format, args...)
+func Warning(ctx context.Context, args ...interface{}) {
+	log.Warning(ctx, args...)
 }
 
-func Notice(args ...interface{}) {
-	GetLogger().Notice(args...)
+func Warningv(ctx context.Context, param ...Param) {
+	log.Warningv(ctx, param...)
 }
 
-func Noticef(format string, args ...interface{}) {
-	GetLogger().Noticef(format, args...)
+func Warningf(ctx context.Context, format string, args ...interface{}) {
+	log.Warningf(ctx, format, args...)
 }
 
-func Info(args ...interface{}) {
-	GetLogger().Info(args...)
+func Info(ctx context.Context, args ...interface{}) {
+	log.Info(ctx, args...)
 }
 
-func Infof(format string, args ...interface{}) {
-	GetLogger().Infof(format, args...)
+func Infov(ctx context.Context, param ...Param) {
+	log.Infov(ctx, param...)
 }
 
-func Debug(args ...interface{}) {
-	GetLogger().Debug(args...)
+func Infof(ctx context.Context, format string, args ...interface{}) {
+	log.Infof(ctx, format, args...)
 }
 
-func Debugf(format string, args ...interface{}) {
-	GetLogger().Debugf(format, args...)
+func Debug(ctx context.Context, args ...interface{}) {
+	log.Debug(ctx, args...)
 }
 
-//------------------------------------------------------------------------------
-
-func resolveLoggerName(names ...string) string {
-	if len(names) > 0 && len(names[0]) > 0 {
-		return names[0]
-	}
-	return DefaultLoggerName
+func Debugv(ctx context.Context, param ...Param) {
+	log.Debugv(ctx, param...)
 }
 
-func GetLogger(names ...string) *logger {
-	name := resolveLoggerName(names...)
-	if _, ok := loggers[name]; ok {
-		return loggers[name]
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	if _, ok := loggers[name]; ok {
-		return loggers[name]
-	}
-	loggers[name] = &logger{
-		logger:    logging.MustGetLogger(name),
-		listeners: make(map[logging.Level][]ListenerFunc),
-	}
-	return loggers[name]
+func Debugf(ctx context.Context, format string, args ...interface{}) {
+	log.Debugf(ctx, format, args...)
 }

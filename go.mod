@@ -1,5 +1,8 @@
 module github.com/teixie-go/xlog
 
-go 1.13
+go 1.15
 
-require github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+require (
+	go.uber.org/zap v1.21.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+)
